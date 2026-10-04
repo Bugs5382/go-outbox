@@ -40,5 +40,5 @@ func backoff(attempt int, minDelay, maxDelay time.Duration) time.Duration {
 		}
 	}
 	half := ceiling / 2
-	return half + rand.N(ceiling-half+1)
+	return half + rand.N(ceiling-half+1) // #nosec G404 -- retry jitter, not a secret
 }
