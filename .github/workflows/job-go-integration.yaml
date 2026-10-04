@@ -1,0 +1,33 @@
+name: Integration
+# Runs the integration tests (-tags integration) against real PostgreSQL and
+# RabbitMQ servers, which the tests start themselves through testcontainers on
+# the runner's Docker. Pull requests only, and not while the PR is a draft.
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'LICENSE*'
+      - '**.txt'
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  integration:
+    name: 🐘 Integration (PostgreSQL + RabbitMQ)
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Integration tests
+        run: go test -race -tags integration -count=1 -timeout 10m ./...

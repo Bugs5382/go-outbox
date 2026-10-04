@@ -23,6 +23,10 @@ tasks:
     desc: Run tests
     cmds:
       - go test -parallel {{.TESTPARALLELISM}} ./...
+  test-integration:
+    desc: Run the integration tests against real PostgreSQL and RabbitMQ (needs Docker; testcontainers starts them)
+    cmds:
+      - go test -race -tags integration -count=1 -timeout 10m ./...
   test-cover:
     desc: Run tests with coverage reporting
     cmds:
