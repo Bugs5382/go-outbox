@@ -71,7 +71,7 @@ func TestPublishCarriesTheRecord(t *testing.T) {
 	for k, want := range map[string]any{
 		"tenant":                          "example",
 		outboxrabbitmq.HeaderAggregateKey: "user-7",
-		outboxrabbitmq.HeaderAttempt:      int32(2),
+		outboxrabbitmq.HeaderAttempt:      int64(2),
 	} {
 		if got := d.Headers[k]; got != want {
 			t.Errorf("header %s = %#v, want %#v", k, got, want)

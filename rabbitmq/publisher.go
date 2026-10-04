@@ -69,7 +69,7 @@ func New(conn *gorabbitmq.Conn, exchange string, opts ...gorabbitmq.PublisherOpt
 // Publish sends r and returns once the broker has confirmed it. A nack, a
 // lost confirm or a returned message is an error, and the relay retries it.
 func (p *Publisher) Publish(ctx context.Context, r outbox.Record) error {
-	headers := amqp.Table{HeaderAttempt: int32(r.Attempt)} // #nosec G115 -- attempts is a Postgres integer
+	headers := amqp.Table{HeaderAttempt: int64(r.Attempt)}
 	for k, v := range r.Headers {
 		headers[k] = v
 	}

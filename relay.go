@@ -380,9 +380,9 @@ func (r *Relay) deliver(ctx context.Context, rec Record) {
 
 func (r *Relay) release(ctx context.Context, recs []Record) {
 	ids := make([]int64, len(recs))
-	attempts := make([]int32, len(recs))
+	attempts := make([]int, len(recs))
 	for i, rec := range recs {
-		ids[i], attempts[i] = rec.ID, int32(rec.Attempt) // #nosec G115 -- attempts is a Postgres integer
+		ids[i], attempts[i] = rec.ID, rec.Attempt
 	}
 	book, cancel := context.WithTimeout(context.WithoutCancel(ctx), bookkeepingTimeout)
 	defer cancel()
