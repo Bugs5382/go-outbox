@@ -23,9 +23,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-import "fmt"
+import "time"
 
-// Hello greets a name. Replace with the package's real entry point.
-func Hello(name string) string {
-	return fmt.Sprintf("Hello, %s!", name)
+// Metrics receives relay events.
+type Metrics interface {
+	Claimed(n int)
+	Published(topic string, attempt int, took time.Duration)
+	Failed(topic string, attempt int, err error)
+	DeadLettered(topic string, attempts int)
+	Released(n int)
 }
+
+// NopMetrics discards every event.
+type NopMetrics struct{}
+
+func (NopMetrics) Claimed(int)                          {}
+func (NopMetrics) Published(string, int, time.Duration) {}
+func (NopMetrics) Failed(string, int, error)            {}
+func (NopMetrics) DeadLettered(string, int)             {}
+func (NopMetrics) Released(int)                         {}

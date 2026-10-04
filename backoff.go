@@ -23,12 +23,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 */
 
-import "testing"
+import (
+	"math/rand/v2"
+	"time"
+)
 
-func TestHello(t *testing.T) {
-	got := Hello("world")
-	want := "Hello, world!"
-	if got != want {
-		t.Errorf("Hello() = %q, want %q", got, want)
+// backoff returns the wait before the attempt after the given one: the
+// ceiling doubles from minDelay per attempt up to maxDelay, and the wait is
+// drawn from the upper half of it, so relays that failed together do not
+// retry together.
+func backoff(attempt int, minDelay, maxDelay time.Duration) time.Duration {
+	ceiling := maxDelay
+	if shift := attempt - 1; shift < 62 {
+		if d := minDelay << shift; d > 0 && d < maxDelay {
+			ceiling = d
+		}
 	}
+	half := ceiling / 2
+	return half + rand.N(ceiling-half+1)
 }
