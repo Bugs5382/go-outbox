@@ -19,6 +19,7 @@ afterwards, retrying until it succeeds.
 - 🛑 **Graceful shutdown** — in-flight publishes finish and are recorded; unstarted claims are handed back at once.
 - 🗄️ **Embedded, versioned migration** — with your own table name, or the SQL for your own migration tool.
 - 🐇 **RabbitMQ adapter** — on go-rabbitmq with publisher confirms, in a sub-package so the core never imports AMQP.
+- 📡 **NATS JetStream adapter** — acknowledged publishes with the idempotency key as `Nats-Msg-Id`, in a sub-package so the core never imports NATS.
 - 📈 **Observable** — logs through go-log, a `Metrics` hook for counters, and `Stats` for gauges and lag.
 
 ## 📦 Install
@@ -181,6 +182,19 @@ the enqueue time as the timestamp, and two headers of its own: `x-outbox-attempt
 is marked sent only after the broker has it. Pass `rabbitmq.WithMandatory()` to have an
 unroutable message come back as an error, and so be retried, instead of being dropped.
 
+## 📡 NATS JetStream publisher
+
+`outboxnats.New(js, opts...)` (`github.com/Bugs5382/go-outbox/nats`) publishes each record to the subject `prefix + Topic` and returns once JetStream has acknowledged it, so a row is marked sent only after the stream has it. The idempotency key goes in the `Nats-Msg-Id` header: a retry that carries the same key inside the stream's duplicate window is dropped by the server and still counts as delivered. The record's `ContentType`, its headers and two headers of its own (`x-outbox-attempt`, and `x-outbox-aggregate-key` when set) travel with the message.
+
+```go
+nc, _ := nats.Connect(url)
+js, _ := jetstream.New(nc)
+pub := outboxnats.New(js, outboxnats.WithSubjectPrefix("sf."), outboxnats.WithTimeout(5*time.Second))
+relay := ob.NewRelay(db, pub)
+```
+
+A subject that is not valid, a subject no stream captures, and a payload over the server limit are permanent errors (the row goes to dead letters without spending its attempts); a lost connection, a timeout or a cancelled context is retried. Streams are yours to manage; `EnsureStream` creates one only when it is missing and never reconfigures an existing one. Size the stream's duplicate window to cover the relay's longest retry backoff.
+
 ## 📈 Logs and metrics
 
 Lifecycle goes to `info`, cycles and publishes to `debug`, per-message detail to `trace`,
@@ -194,7 +208,7 @@ Payloads are never logged; messages are identified by key and topic. `Metrics` r
 ```bash
 task build              # go build ./...
 task test               # go test ./... (unit tests, no services)
-task test-integration   # integration tests; testcontainers starts PostgreSQL and RabbitMQ in Docker
+task test-integration   # integration tests; testcontainers starts PostgreSQL and RabbitMQ in Docker; the NATS tests run an embedded server
 task lint               # gofmt check + golangci-lint + yamllint
 task license            # check MIT headers (golic)
 ```
