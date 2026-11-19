@@ -1,6 +1,6 @@
 module github.com/Bugs5382/go-outbox
 
-go 1.26.0
+go 1.27.4
 
 require (
 	github.com/Bugs5382/go-log v1.3.0
