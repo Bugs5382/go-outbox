@@ -195,6 +195,33 @@ relay := ob.NewRelay(db, pub)
 
 A subject that is not valid, a subject no stream captures, and a payload over the server limit are permanent errors (the row goes to dead letters without spending its attempts); a lost connection, a timeout or a cancelled context is retried. Streams are yours to manage; `EnsureStream` creates one only when it is missing and never reconfigures an existing one. Size the stream's duplicate window to cover the relay's longest retry backoff.
 
+## 📥 NATS JetStream consumer
+
+`go-outbox/nats/consumer` is the consuming side of the NATS adapter, so a service does not write the same code again.
+
+```go
+c, _ := consumer.New(js, consumer.Config{
+	Stream: "SF", Durable: "go-members-people", FilterSubjects: []string{"sf.auth.>"},
+	DLQSubject: "sf.dlq.people", MaxDeliver: 5,
+	Backoff: []time.Duration{time.Second, 5 * time.Second, 30 * time.Second},
+})
+err := c.Run(ctx, func(ctx context.Context, m consumer.Message) error {
+	return db.RunInTx(ctx, func(tx pgx.Tx) error {
+		if fresh, err := ob.Dedupe(ctx, tx, "people", m.Key); err != nil || !fresh {
+			return err // a redelivery of a message already handled is acknowledged
+		}
+		return handle(ctx, tx, m)
+	})
+})
+```
+
+- **Queue group:** replicas that run a consumer with the same `Stream` and `Durable` share one durable consumer and split the messages.
+- **Acknowledgement:** a nil return acknowledges; an error naks with the next delay of `Backoff` (the last one repeats); `outbox.Permanent(err)` or reaching `MaxDeliver` publishes the message to `DLQSubject` (the same stream must capture it) with the original subject, the attempts, the reason and the original sequence as headers, then terminates it. If the dead letter cannot be written the message is retried instead of lost.
+- **Idempotency:** `Message.Key` is the key the outbox published as `Nats-Msg-Id`; `Dedupe` in the handler's transaction makes the handler safe against redelivery.
+- **Resume:** `Message.ResumeToken()` is `stream:sequence`; `consumer.Resume(ctx, js, token, subjects...)` returns an ordered consumer that continues after it (for a client that reconnects).
+- **Drain:** when the context is cancelled `Run` stops fetching, waits up to `DrainTimeout` for the handlers in flight and returns nil.
+- **Metrics:** `WithMetrics` receives `Received`, `Acked`, `Retried` and `DeadLettered`; `WithConcurrency(n)` runs handlers in parallel.
+
 ## 📈 Logs and metrics
 
 Lifecycle goes to `info`, cycles and publishes to `debug`, per-message detail to `trace`,
